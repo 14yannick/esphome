@@ -49,4 +49,38 @@ TEST(HoermannHcpBinarySensorTest, UnchangedConnectionIsPublishedOnce) {
   EXPECT_EQ(publishes, 1);
 }
 
+// Register 7 has not been read yet, so the relay is unknown rather than assumed off.
+TEST(HoermannHcpRelayBinarySensorTest, UnknownUntilRegister7IsRead) {
+  TestableHoermannHcp door;
+  HoermannHcpRelayBinarySensor sensor(&door);
+  sensor.setup();
+  EXPECT_FALSE(sensor.has_state());
+
+  connect_controller(door);
+  door.update();
+  EXPECT_FALSE(sensor.has_state());
+}
+
+// Bit 0x04 in the low byte and 0x02 in the high byte both mark the relay as on, matching the reference
+// implementation's decode.
+TEST(HoermannHcpRelayBinarySensorTest, FollowsTheRelayBit) {
+  TestableHoermannHcp door;
+  HoermannHcpRelayBinarySensor sensor(&door);
+  sensor.setup();
+  connect_controller(door);
+
+  door.on_write_registers(BROADCAST_REG, lamp_broadcast(0x0004));
+  door.update();
+  ASSERT_TRUE(sensor.has_state());
+  EXPECT_TRUE(sensor.state);
+
+  door.on_write_registers(BROADCAST_REG, lamp_broadcast(0x0200));
+  door.update();
+  EXPECT_TRUE(sensor.state);
+
+  door.on_write_registers(BROADCAST_REG, lamp_broadcast(0x0000));
+  door.update();
+  EXPECT_FALSE(sensor.state);
+}
+
 }  // namespace esphome::hoermann_hcp::testing

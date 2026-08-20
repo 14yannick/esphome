@@ -339,7 +339,7 @@ TEST(HoermannHcpLightPlatformTest, LampIsNotTrustedAcrossAConnectionLoss) {
   connect_controller(fixture.door);
   fixture.pump();
   ASSERT_TRUE(fixture.door.is_valid());
-  ASSERT_FALSE(fixture.door.is_light_known());
+  ASSERT_FALSE(fixture.door.is_reg7_known());
 
   fixture.command(false);
   auto [idle, idle_2] = poll_command(fixture.door);
@@ -389,7 +389,7 @@ TEST(HoermannHcpLightPlatformTest, CommandBeforeTheFirstPollIsNotMistakenForTheB
 
   // The first status broadcast arrives, but the hub has not polled yet, so no callback has fired.
   fixture.door.on_write_registers(BROADCAST_REG, lamp_broadcast(0x0000));
-  ASSERT_TRUE(fixture.door.is_light_known());
+  ASSERT_TRUE(fixture.door.is_reg7_known());
 
   fixture.command(true);
   auto [pressed, pressed_2] = poll_command(fixture.door);
@@ -423,7 +423,7 @@ TEST(HoermannHcpLightPlatformTest, RequestBeforeTheLampIsReportedDoesNotCommandT
   connect_controller(fixture.door);
   fixture.pump();
   ASSERT_TRUE(fixture.door.is_valid());
-  ASSERT_FALSE(fixture.door.is_light_known());
+  ASSERT_FALSE(fixture.door.is_reg7_known());
 
   fixture.command(true);
   auto [idle, idle_2] = poll_command(fixture.door);
@@ -530,11 +530,11 @@ TEST(HoermannHcpLightPlatformTest, FirstLampReportReachesTheEntity) {
   // A command poll connects the controller without saying anything about the lamp.
   connect_controller(fixture.door);
   fixture.pump();
-  ASSERT_FALSE(fixture.door.is_light_known());
+  ASSERT_FALSE(fixture.door.is_reg7_known());
 
   // Closed, at rest, lamp off: every field matches the defaults the hub started with.
   fixture.report_broadcast(make_registers({0x0000, 0x0000, 0x4000, 0x0000, 0x0000, 0x0000, 0x0000}));
-  ASSERT_TRUE(fixture.door.is_light_known());
+  ASSERT_TRUE(fixture.door.is_reg7_known());
 
   fixture.command(true);
   auto [pressed, pressed_2] = poll_command(fixture.door);
@@ -593,7 +593,7 @@ TEST(HoermannHcpLightPlatformTest, RefusedRequestLeavesTheEntityIdle) {
   LightFixture fixture;
   connect_controller(fixture.door);
   fixture.settle();
-  ASSERT_FALSE(fixture.door.is_light_known());
+  ASSERT_FALSE(fixture.door.is_reg7_known());
 
   // The lamp is unknown and the entity already shows off, so asking for off cannot be serviced or displayed.
   fixture.command(false);
@@ -728,11 +728,11 @@ TEST(HoermannHcpLightTest, TogglesAreRefusedOnceTooManyAreOutstanding) {
 TEST(HoermannHcpLightPlatformTest, BroadcastWithoutTheLampRegisterMarksItUnknown) {
   LightFixture fixture;
   fixture.bring_up();
-  ASSERT_TRUE(fixture.door.is_light_known());
+  ASSERT_TRUE(fixture.door.is_reg7_known());
 
   fixture.report_broadcast(make_registers({0x0000, 0x0000, 0x4000}));
 
-  EXPECT_FALSE(fixture.door.is_light_known());
+  EXPECT_FALSE(fixture.door.is_reg7_known());
   EXPECT_TRUE(fixture.output.status_has_warning());
 }
 

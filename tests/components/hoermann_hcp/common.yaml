@@ -11,6 +11,8 @@ binary_sensor:
   - platform: hoermann_hcp
     is_connected:
       name: Garage Connected
+    is_relay_on:
+      name: Garage Relay
 
 button:
   - platform: hoermann_hcp
@@ -22,3 +24,14 @@ button:
 light:
   - platform: hoermann_hcp
     name: Garage Light
+
+text_sensor:
+  - platform: hoermann_hcp
+    name: Garage Door State
+
+switch:
+  - platform: hoermann_hcp
+    vent:
+      name: Garage Vent Switch
+    half_open:
+      name: Garage Half Open Switch

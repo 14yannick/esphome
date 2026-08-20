@@ -17,4 +17,16 @@ class HoermannHcpConnectedBinarySensor : public binary_sensor::BinarySensor, pub
   HoermannHcp *const parent_;
 };
 
+class HoermannHcpRelayBinarySensor : public binary_sensor::BinarySensor, public Component {
+ public:
+  explicit HoermannHcpRelayBinarySensor(HoermannHcp *parent) : parent_(parent) {}
+
+  void setup() override;
+  void dump_config() override;
+
+ protected:
+  void update_from_state_();
+  HoermannHcp *const parent_;
+};
+
 }  // namespace esphome::hoermann_hcp

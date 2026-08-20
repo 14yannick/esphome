@@ -9,10 +9,16 @@ from .. import CONF_HOERMANN_HCP_ID, HoermannHcp, hoermann_hcp_ns
 DEPENDENCIES = ["hoermann_hcp"]
 
 CONF_IS_CONNECTED = "is_connected"
+CONF_IS_RELAY_ON = "is_relay_on"
 
 HoermannHcpConnectedBinarySensor = hoermann_hcp_ns.class_(
     "HoermannHcpConnectedBinarySensor", binary_sensor.BinarySensor, cg.Component
 )
+HoermannHcpRelayBinarySensor = hoermann_hcp_ns.class_(
+    "HoermannHcpRelayBinarySensor", binary_sensor.BinarySensor, cg.Component
+)
+
+BINARY_SENSOR_KEYS = (CONF_IS_CONNECTED, CONF_IS_RELAY_ON)
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -23,14 +29,22 @@ CONFIG_SCHEMA = cv.All(
                 device_class=DEVICE_CLASS_CONNECTIVITY,
                 entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ).extend(cv.COMPONENT_SCHEMA),
+            cv.Optional(CONF_IS_RELAY_ON): binary_sensor.binary_sensor_schema(
+                HoermannHcpRelayBinarySensor,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ).extend(cv.COMPONENT_SCHEMA),
         }
     ),
-    cv.has_at_least_one_key(CONF_IS_CONNECTED),
+    cv.has_at_least_one_key(*BINARY_SENSOR_KEYS),
 )
 
 
 async def to_code(config: ConfigType) -> None:
-    if (conf := config.get(CONF_IS_CONNECTED)) is not None:
-        parent = await cg.get_variable(config[CONF_HOERMANN_HCP_ID])
+    parent = None
+    for key in BINARY_SENSOR_KEYS:
+        if (conf := config.get(key)) is None:
+            continue
+        if parent is None:
+            parent = await cg.get_variable(config[CONF_HOERMANN_HCP_ID])
         var = await binary_sensor.new_binary_sensor(conf, parent)
         await cg.register_component(var, conf)

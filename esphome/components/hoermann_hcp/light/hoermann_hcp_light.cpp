@@ -37,7 +37,7 @@ void HoermannHcpLight::write_state(light::LightState *state) {
   if (restored) {
     ESP_LOGD(TAG, "Ignoring the restored state, the door decides what the lamp is doing");
   } else if (published != binary) {
-    if (!this->parent_->is_light_known()) {
+    if (!this->parent_->is_reg7_known()) {
       // Commanding a lamp that has not been read could switch off one that is already on.
       ESP_LOGW(TAG, "Door has not reported the lamp yet, ignoring the requested state");
     } else if (this->parent_->cancel_light_toggle() || this->parent_->toggle_light()) {
@@ -58,7 +58,7 @@ void HoermannHcpLight::update_from_state_() {
     this->status_set_warning(LOG_STR("bus controller not responding"));
     return;
   }
-  if (!this->parent_->is_light_known()) {
+  if (!this->parent_->is_reg7_known()) {
     // Commands are refused until the door says, so say so rather than looking healthy and doing nothing.
     this->status_set_warning(LOG_STR("door has not reported the lamp"));
     return;

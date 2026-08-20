@@ -60,6 +60,31 @@ static bool is_moving(DoorState state) {
   }
 }
 
+const char *door_state_to_string(DoorState state) {
+  switch (state) {
+    case DoorState::OPEN:
+      return "OPEN";
+    case DoorState::OPENING:
+      return "OPENING";
+    case DoorState::CLOSED:
+      return "CLOSED";
+    case DoorState::CLOSING:
+      return "CLOSING";
+    case DoorState::HALF_OPEN:
+      return "HALF_OPEN";
+    case DoorState::MOVE_VENTING:
+      return "MOVE_VENTING";
+    case DoorState::VENT:
+      return "VENT";
+    case DoorState::MOVE_HALF:
+      return "MOVE_HALF";
+    case DoorState::STOPPED:
+      return "STOPPED";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 void HoermannHcp::update() {
   const uint32_t now = millis();
   // Time out the connection flag if the bus controller stopped polling.
@@ -174,11 +199,11 @@ modbus::ResponseStatus HoermannHcp::on_write_registers(uint16_t start_address,
   if (registers.size() > 1)
     this->on_position_reg_(registers[1]);
   if (registers.size() > 6) {
-    this->on_light_reg_(registers[6]);
+    this->on_light_relay_reg_(registers[6]);
     return {};
   }
-  // Nothing refreshes the lamp any more, so what was read before must not be commanded against.
-  this->set_light_seen_(false);
+  // Nothing refreshes the lamp or relay any more, so what was read before must not be commanded against.
+  this->set_reg7_seen_(false);
   if (!this->short_broadcast_logged_) {
     this->short_broadcast_logged_ = true;
     ESP_LOGD(TAG, "Broadcast of %u registers carries no lamp state", static_cast<unsigned>(registers.size()));
@@ -261,11 +286,15 @@ void HoermannHcp::on_state_reg_(uint16_t value) {
     ESP_LOGW(TAG, "Unknown door state 0x%02X", state);
 }
 
-// Low byte of register 6: bit 0x10 is the lamp, bit 0x04 the relay. The reference implementation records
-// 0x00, 0x04, 0x10 and 0x14, so only the lamp bit decides here.
-void HoermannHcp::on_light_reg_(uint16_t value) {
-  this->set_light_seen_(true);
-  this->set_light_on_((value & 0x0010) != 0);
+// Register 7 carries the lamp and the relay. The reference implementation only ever observed 0x00, 0x04, 0x10
+// and 0x14 for the low byte, matched here by exact value rather than a bitmask; the relay additionally shows
+// as 0x02 in the high byte.
+void HoermannHcp::on_light_relay_reg_(uint16_t value) {
+  this->set_reg7_seen_(true);
+  const auto high_byte = static_cast<uint8_t>(value >> 8);
+  const auto low_byte = static_cast<uint8_t>(value & 0x00FF);
+  this->set_light_on_(low_byte == 0x10 || low_byte == 0x14);
+  this->set_relay_on_(high_byte == 0x02 || low_byte == 0x14 || low_byte == 0x04);
 }
 
 bool HoermannHcp::queue_command_(const HoermannHcpCommand &command) {
@@ -368,8 +397,8 @@ void HoermannHcp::set_valid_(bool valid) {
   // The door cannot be watched while the bus is quiet, so a target left armed would stop it long afterwards.
   this->clear_target_();
   this->forget_light_toggles_();
-  // The lamp can be switched at the door while the bus is quiet, so what was last read is no longer trusted.
-  this->set_light_seen_(false);
+  // The lamp and relay can change at the door while the bus is quiet, so what was last read is no longer trusted.
+  this->set_reg7_seen_(false);
   this->short_broadcast_logged_ = false;
 }
 
@@ -458,11 +487,18 @@ void HoermannHcp::set_light_on_(bool on) {
   this->light_toggle_settled_();
 }
 
-void HoermannHcp::set_light_seen_(bool seen) {
-  if (this->light_seen_ == seen)
+void HoermannHcp::set_reg7_seen_(bool seen) {
+  if (this->reg7_seen_ == seen)
     return;
-  this->light_seen_ = seen;
+  this->reg7_seen_ = seen;
   // A resting door changes nothing else, so without this the light would never hear about it.
+  this->changed_ = true;
+}
+
+void HoermannHcp::set_relay_on_(bool on) {
+  if (this->relay_on_ == on)
+    return;
+  this->relay_on_ = on;
   this->changed_ = true;
 }
 

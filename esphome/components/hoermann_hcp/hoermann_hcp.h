@@ -21,6 +21,9 @@ enum class DoorState : uint8_t {
   STOPPED,
 };
 
+// Name of a door state, for display purposes (e.g. a text sensor).
+const char *door_state_to_string(DoorState state);
+
 // A HCP command is a simulated key press: the pressed value is presented to the bus controller, then after a
 // short delay the released value. Each half also carries a second register, which names the buttons that do
 // not fit into the first.
@@ -66,9 +69,11 @@ class HoermannHcp : public PollingComponent, public modbus::ModbusServerDevice {
   float get_current_position() const { return this->current_position_; }
   bool is_valid() const { return this->valid_; }
   bool is_light_on() const { return this->light_on_; }
-  // False until a broadcast has actually carried the lamp register. Bus traffic alone makes the connection
-  // valid without saying anything about the lamp, so is_light_on() would still be its default.
-  bool is_light_known() const { return this->light_seen_; }
+  // Auxiliary relay output the bus controller reports alongside the lamp. Read-only: nothing here commands it.
+  bool is_relay_on() const { return this->relay_on_; }
+  // False until a broadcast has actually carried register 7. Bus traffic alone makes the connection valid
+  // without saying anything about it, so is_light_on()/is_relay_on() would still be their defaults.
+  bool is_reg7_known() const { return this->reg7_seen_; }
   // Where the lamp ends up once every toggle on its way has landed, each of which inverts it. Until then the
   // lamp still reads as its old self, so this is what a request has to be judged against.
   bool is_light_heading_on() const { return this->light_on_ != (this->light_toggles_in_flight_ % 2 != 0); }
@@ -94,7 +99,7 @@ class HoermannHcp : public PollingComponent, public modbus::ModbusServerDevice {
   void push_command_registers_(modbus::RegisterValues &registers);
   void on_position_reg_(uint16_t value);
   void on_state_reg_(uint16_t value);
-  void on_light_reg_(uint16_t value);
+  void on_light_relay_reg_(uint16_t value);
 
   void set_valid_(bool valid);
   void set_door_state_(DoorState state);
@@ -103,7 +108,8 @@ class HoermannHcp : public PollingComponent, public modbus::ModbusServerDevice {
   bool has_target_() const { return this->target_position_ != 0.0f; }
   void clear_target_();
   void set_light_on_(bool on);
-  void set_light_seen_(bool seen);
+  void set_reg7_seen_(bool seen);
+  void set_relay_on_(bool on);
 
   CallbackManager<void()> state_callback_;
 
@@ -144,7 +150,8 @@ class HoermannHcp : public PollingComponent, public modbus::ModbusServerDevice {
   bool valid_{false};
   bool changed_{false};
   bool light_on_{false};
-  bool light_seen_{false};
+  bool reg7_seen_{false};
+  bool relay_on_{false};
   bool short_broadcast_logged_{false};
 };
 

@@ -4,6 +4,8 @@
 
 namespace esphome::hoermann_hcp {
 
+static const char *const TAG = "hoermann_hcp.text_sensor";
+
 void HoermannHcpDoorStateTextSensor::setup() {
   this->parent_->add_on_state_callback([this]() { this->update_from_state_(); });
   this->update_from_state_();
